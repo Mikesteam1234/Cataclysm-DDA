@@ -64,6 +64,8 @@ struct bionic;
 using drop_location = std::pair<item_location, int>;
 using drop_locations = std::list<drop_location>;
 
+#define MAX_CLAIRVOYANCE 40
+
 enum vision_modes {
     DEBUG_NIGHTVISION,
     NV_GOGGLES,
@@ -416,6 +418,29 @@ class Character : public Creature, public visitable<Character>
         float get_dodge_base() const override;
         float get_hit_base() const override;
 
+        const tripoint &pos() const override;
+        /** Returns the player's sight range */
+        int sight_range( int light_level ) const override;
+        /** Returns the player maximum vision range factoring in mutations, diseases, and other effects */
+        int  unimpaired_range() const;
+        /** Returns true if overmap tile is within player line-of-sight */
+        bool overmap_los( const tripoint &omt, int sight_points );
+        /** Returns the distance the player can see on the overmap */
+        int  overmap_sight_range( int light_level ) const;
+        /** Returns the distance the player can see through walls */
+        int  clairvoyance() const;
+        /** Returns true if the player has some form of impaired sight */
+        bool sight_impaired() const;
+        /** Returns true if the player or their vehicle has an alarm clock */
+        bool has_alarm_clock() const;
+        /** Returns true if the player or their vehicle has a watch */
+        bool has_watch() const;
+        /** Called after every action, invalidates player caches */
+        void action_taken();
+        /** Returns true if the player is knocked over or has broken legs */
+        bool is_on_ground() const override;
+        /** Returns the player's speed for swimming across water tiles */
+        int  swim_speed() const;
         /**
          * Adds a reason for why the player would miss a melee attack.
          *
@@ -439,7 +464,8 @@ class Character : public Creature, public visitable<Character>
         // called once per 24 hours to enforce the minimum of 1 hp healed per day
         // TODO: Move to Character once heal() is moved
         void enforce_minimum_healing();
-
+        /** get best quality item that this character has */
+        item *best_quality_item( const quality_id &qual );
         /** Handles health fluctuations over time */
         virtual void update_health( int external_modifiers = 0 );
         /** Updates all "biology" by one turn. Should be called once every turn. */
@@ -539,6 +565,9 @@ class Character : public Creature, public visitable<Character>
         void add_effect( const efftype_id &eff_id, const time_duration &dur, body_part bp = num_bp,
                          bool permanent = false,
                          int intensity = 0, bool force = false, bool deferred = false ) override;
+
+        /**Determine if character is susceptible to dis_type and if so apply the symptoms*/
+        void expose_to_disease( diseasetype_id dis_type );
         /**
          * Handles end-of-turn processing.
          */
@@ -637,6 +666,8 @@ class Character : public Creature, public visitable<Character>
         bool can_mount( const monster &critter ) const;
         void mount_creature( monster &z );
         bool is_mounted() const;
+        bool check_mount_will_move( const tripoint &dest_loc );
+        bool check_mount_is_spooked();
         void dismount();
         void forced_dismount();
 
@@ -896,7 +927,7 @@ class Character : public Creature, public visitable<Character>
 
         /**Has enough anesthetic for surgery*/
         bool has_enough_anesth( const itype *cbm, player &patient );
-        /** Handles process of introducing patient into anesthesia during Autodoc operations. Requires anesthetic kits or NOPAIN mutation */
+        /** Handles process of introducing patient into anesthesia during Autodoc operations. Requires anesthesia kits or NOPAIN mutation */
         void introduce_into_anesthesia( const time_duration &duration, player &installer,
                                         bool needs_anesthesia );
         /** Removes a bionic from my_bionics[] */
@@ -1500,7 +1531,10 @@ class Character : public Creature, public visitable<Character>
         void use_fire( int quantity );
         void assign_stashed_activity();
         bool check_outbounds_activity( const player_activity &act, bool check_only = false );
-        /** Legacy activity assignment, should not be used where resuming is important. */
+        /** Legacy activity assignment, does not work for any activites using
+         * the new activity_actor class and may cause issues with resuming.
+         * TODO: delete this once migration of activites to the activity_actor system is complete
+         */
         void assign_activity( const activity_id &type, int moves = calendar::INDEFINITELY_LONG,
                               int index = -1, int pos = INT_MIN,
                               const std::string &name = "" );
@@ -1728,6 +1762,10 @@ class Character : public Creature, public visitable<Character>
         bool fuel_bionic_with( item &it );
         /** Used to apply stimulation modifications from food and medication **/
         void modify_stimulation( const islot_comestible &comest );
+        /** Used to apply fatigue modifications from food and medication **/
+        void modify_fatigue( const islot_comestible &comest );
+        /** Used to apply radiation from food and medication **/
+        void modify_radiation( const islot_comestible &comest );
         /** Used to apply addiction modifications from food and medication **/
         void modify_addiction( const islot_comestible &comest );
         /** Used to apply health modifications from food and medication **/

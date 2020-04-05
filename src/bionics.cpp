@@ -171,7 +171,6 @@ static const trait_id trait_PROF_MED( "PROF_MED" );
 static const trait_id trait_THRESH_MEDICAL( "THRESH_MEDICAL" );
 
 static const std::string flag_ALLOWS_NATURAL_ATTACKS( "ALLOWS_NATURAL_ATTACKS" );
-static const std::string flag_ANESTHESIA( "ANESTHESIA" );
 static const std::string flag_AURA( "AURA" );
 static const std::string flag_CABLE_SPOOL( "CABLE_SPOOL" );
 static const std::string flag_FILTHY( "FILTHY" );
@@ -733,7 +732,8 @@ bool Character::activate_bionic( int b, bool eff_only )
             proj.range = rl_dist( pr.second, pos() ) - 1;
             proj.proj_effects = {{ "NO_ITEM_DAMAGE", "DRAW_AS_LINE", "NO_DAMAGE_SCALING", "JET" }};
 
-            dealt_projectile_attack  dealt = projectile_attack( proj, pr.second, pos(), 0, this );
+            dealt_projectile_attack dealt = projectile_attack(
+                                                proj, pr.second, pos(), dispersion_sources{ 0 }, this );
             g->m.add_item_or_charges( dealt.end_point, pr.first );
         }
 
@@ -1702,13 +1702,7 @@ bool Character::has_enough_anesth( const itype *cbm, player &patient )
     const requirement_data req_anesth = *requirement_id( "anesthetic" ) *
                                         cbm->bionic->difficulty * 2 * weight;
 
-    std::vector<const item *> b_filter = crafting_inventory().items_with( []( const item & it ) {
-        // legacy
-        return it.has_flag( flag_ANESTHESIA );
-    } );
-
-    return req_anesth.can_make_with_inventory( crafting_inventory(), is_crafting_component ) ||
-           !b_filter.empty();
+    return req_anesth.can_make_with_inventory( crafting_inventory(), is_crafting_component );
 }
 
 // bionic manipulation adjusted skill
@@ -2800,6 +2794,24 @@ void bionic::deserialize( JsonIn &jsin )
         }
     }
 
+}
+
+std::vector<bionic_id> bionics_cancelling_trait( const std::vector<bionic_id> &bios,
+        const trait_id &tid )
+{
+    // Vector of bionics to return
+    std::vector<bionic_id> bionics_cancelling;
+
+    // Search through the vector of of bionics, and see if the trait is cancelled by one of them
+    for( const bionic_id &bid : bios ) {
+        for( const trait_id &trait : bid->canceled_mutations ) {
+            if( trait == tid ) {
+                bionics_cancelling.emplace_back( bid );
+            }
+        }
+    }
+
+    return bionics_cancelling;
 }
 
 void Character::introduce_into_anesthesia( const time_duration &duration, player &installer,

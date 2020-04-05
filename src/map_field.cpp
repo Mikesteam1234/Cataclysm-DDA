@@ -106,7 +106,7 @@ void map::create_burnproducts( const tripoint &p, const item &fuel, const units:
                 continue;
             }
             const float eff = bp.second;
-            const int n = floor( eff * ( by_weight / item::find_type( id )->weight ) );
+            const int n = std::floor( eff * ( by_weight / item::find_type( id )->weight ) );
 
             if( n <= 0 ) {
                 continue;
@@ -1747,6 +1747,10 @@ void map::monster_in_field( monster &z )
         // Digging monsters are immune to fields
         return;
     }
+    if( veh_at( z.pos() ) ) {
+        // FIXME: Immune when in a vehicle for now.
+        return;
+    }
     field &curfield = get_field( z.pos() );
 
     int dam = 0;
@@ -2074,7 +2078,7 @@ void map::propagate_field( const tripoint &center, const field_type_id &type, in
 
         int increment = std::max<int>( 1, amount / gas_front.size() );
 
-        while( amount > 0 && !gas_front.empty() ) {
+        while( !gas_front.empty() ) {
             gas_blast gp = random_entry_removed( gas_front );
             closed.insert( gp.second );
             const int cur_intensity = get_field_intensity( gp.second, type );
