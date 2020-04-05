@@ -22,6 +22,7 @@
 #include "creature.h"
 #include "debug.h"
 #include "dialogue.h"
+#include "disease.h"
 #include "effect.h"
 #include "emit.h"
 #include "event_statistics.h"
@@ -72,7 +73,6 @@
 #include "string_formatter.h"
 #include "text_snippets.h"
 #include "trap.h"
-#include "gamemode_tutorial.h"
 #include "veh_type.h"
 #include "vehicle_group.h"
 #include "vitamin.h"
@@ -182,6 +182,8 @@ void DynamicDataLoader::add( const std::string &type, std::function<void( const 
     }
 }
 
+void load_charge_removal_blacklist( const JsonObject &jo, const std::string &src );
+
 void DynamicDataLoader::initialize()
 {
     // all of the applicable types that can be loaded, along with their loading functions
@@ -220,6 +222,7 @@ void DynamicDataLoader::initialize()
     add( "enchantment", &enchantment::load_enchantment );
     add( "hit_range", &Creature::load_hit_range );
     add( "scent_type", &scent_type::load_scent_type );
+    add( "disease_type", &disease_type::load_disease_type );
 
     // json/colors.json would be listed here, but it's loaded before the others (see init_colors())
     // Non Static Function Access
@@ -308,6 +311,8 @@ void DynamicDataLoader::initialize()
         item_controller->load_migration( jo );
     } );
 
+    add( "charge_removal_blacklist", load_charge_removal_blacklist );
+
     add( "MONSTER", []( const JsonObject & jo, const std::string & src ) {
         MonsterGenerator::generator().load_monster( jo, src );
     } );
@@ -326,7 +331,6 @@ void DynamicDataLoader::initialize()
     add( "technique", &load_technique );
     add( "martial_art", &load_martial_art );
     add( "effect_type", &load_effect_type );
-    add( "tutorial_messages", &load_tutorial_messages );
     add( "obsolete_terrain", &overmap::load_obsolete_terrains );
     add( "overmap_terrain", &overmap_terrains::load );
     add( "construction_category", &construction_categories::load );
@@ -379,7 +383,7 @@ void DynamicDataLoader::initialize()
     } );
     add( "palette", mapgen_palette::load );
     add( "rotatable_symbol", &rotatable_symbols::load );
-    add( "body_part", &body_part_struct::load_bp );
+    add( "body_part", &body_part_type::load_bp );
     add( "anatomy", &anatomy::load_anatomy );
     add( "morale_type", &morale_type_data::load_type );
     add( "SPELL", &spell_type::load_spell );
@@ -493,7 +497,6 @@ void DynamicDataLoader::unload_data()
     mutation_branch::reset_all();
     spell_type::reset_all();
     reset_bionics();
-    clear_tutorial_messages();
     reset_furn_ter();
     MonsterGroupManager::ClearMonsterGroups();
     SNIPPET.clear_snippets();
@@ -527,7 +530,7 @@ void DynamicDataLoader::unload_data()
     reset_overlay_ordering();
     npc_class::reset_npc_classes();
     rotatable_symbols::reset();
-    body_part_struct::reset();
+    body_part_type::reset();
     npc_template::reset();
     anatomy::reset();
     reset_mod_tileset();
@@ -558,7 +561,7 @@ void DynamicDataLoader::finalize_loaded_data( loading_ui &ui )
 
     using named_entry = std::pair<std::string, std::function<void()>>;
     const std::vector<named_entry> entries = {{
-            { _( "Body parts" ), &body_part_struct::finalize_all },
+            { _( "Body parts" ), &body_part_type::finalize_all },
             { _( "Field types" ), &field_types::finalize_all },
             { _( "Ammo effects" ), &ammo_effects::finalize_all },
             { _( "Emissions" ), &emit::finalize },
@@ -688,13 +691,14 @@ void DynamicDataLoader::check_consistency( loading_ui &ui )
             },
             { _( "Harvest lists" ), &harvest_list::check_consistency },
             { _( "NPC templates" ), &npc_template::check_consistency },
-            { _( "Body parts" ), &body_part_struct::check_consistency },
+            { _( "Body parts" ), &body_part_type::check_consistency },
             { _( "Anatomies" ), &anatomy::check_consistency },
             { _( "Spells" ), &spell_type::check_consistency },
             { _( "Transformations" ), &event_transformation::check_consistency },
             { _( "Statistics" ), &event_statistic::check_consistency },
             { _( "Scent types" ), &scent_type::check_scent_consistency },
             { _( "Scores" ), &score::check_consistency },
+            { _( "Disease types" ), &disease_type::check_disease_consistency },
             { _( "Factions" ), &faction_template::check_consistency },
         }
     };

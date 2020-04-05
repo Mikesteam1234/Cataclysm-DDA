@@ -36,6 +36,7 @@
 #include "string_input_popup.h"
 #include "translations.h"
 #include "ui.h"
+#include "ui_manager.h"
 #include "value_ptr.h"
 #include "veh_type.h"
 #include "veh_utils.h"
@@ -334,6 +335,10 @@ void veh_interact::do_main_loop()
     } else {
         owner_fac = g->faction_manager_ptr->get( faction_id( "no_faction" ) );
     }
+
+    // FIXME: temporarily disable redrawing of lower UIs before this UI is migrated to `ui_adaptor`
+    ui_adaptor ui( ui_adaptor::disable_uis_below {} );
+
     while( !finish ) {
         overview();
         display_mode();
@@ -973,6 +978,9 @@ bool veh_interact::do_install( std::string &msg )
     // full list of mountable parts, to be filtered according to tab
     std::vector<const vpart_info *> tab_vparts = can_mount;
 
+    // FIXME: temporarily disable redrawing of lower UIs before this UI is migrated to `ui_adaptor`
+    ui_adaptor ui( ui_adaptor::disable_uis_below {} );
+
     int pos = 0;
     size_t tab = 0;
     while( true ) {
@@ -1152,6 +1160,9 @@ bool veh_interact::do_repair( std::string &msg )
     }
 
     set_title( _( "Choose a part here to repair:" ) );
+
+    // FIXME: temporarily disable redrawing of lower UIs before this UI is migrated to `ui_adaptor`
+    ui_adaptor ui( ui_adaptor::disable_uis_below {} );
 
     int pos = 0;
     while( true ) {
@@ -1554,6 +1565,9 @@ bool veh_interact::overview( std::function<bool( const vehicle_part &pt )> enabl
         } while( !opts[pos].hotkey );
     }
 
+    // FIXME: temporarily disable redrawing of lower UIs before this UI is migrated to `ui_adaptor`
+    ui_adaptor ui( ui_adaptor::disable_uis_below {} );
+
     bool redraw = false;
     while( true ) {
         werase( w_list );
@@ -1785,6 +1799,10 @@ bool veh_interact::do_remove( std::string &msg )
             break;
         }
     }
+
+    // FIXME: temporarily disable redrawing of lower UIs before this UI is migrated to `ui_adaptor`
+    ui_adaptor ui( ui_adaptor::disable_uis_below {} );
+
     while( true ) {
         //redraw list of parts
         werase( w_parts );
@@ -2296,45 +2314,61 @@ void veh_interact::display_stats() const
 
     bool is_boat = !veh->floating.empty();
     bool is_ground = !veh->wheelcache.empty() || !is_boat;
+    bool is_aircraft = veh->is_rotorcraft() && veh->is_flying_in_air();
 
     const auto vel_to_int = []( const double vel ) {
         return static_cast<int>( convert_velocity( vel, VU_VEHICLE ) );
     };
 
     int i = 0;
-    if( is_ground ) {
+    if( is_aircraft ) {
         fold_and_print( w_stats, point( x[i], y[i] ), w[i], c_light_gray,
-                        _( "Safe/Top Speed: <color_light_green>%3d</color>/<color_light_red>%3d</color> %s" ),
-                        vel_to_int( veh->safe_ground_velocity( false ) ),
-                        vel_to_int( veh->max_ground_velocity( false ) ),
+                        _( "Air Safe/Top Speed: <color_light_green>%3d</color>/<color_light_red>%3d</color> %s" ),
+                        vel_to_int( veh->safe_rotor_velocity( false ) ),
+                        vel_to_int( veh->max_rotor_velocity( false ) ),
                         velocity_units( VU_VEHICLE ) );
         i += 1;
-        // TODO: extract accelerations units to its own function
         fold_and_print( w_stats, point( x[i], y[i] ), w[i], c_light_gray,
                         //~ /t means per turn
-                        _( "Acceleration: <color_light_blue>%3d</color> %s/t" ),
-                        vel_to_int( veh->ground_acceleration( false ) ),
+                        _( "Air Acceleration: <color_light_blue>%3d</color> %s/t" ),
+                        vel_to_int( veh->rotor_acceleration( false ) ),
                         velocity_units( VU_VEHICLE ) );
         i += 1;
     } else {
-        i += 2;
-    }
-    if( is_boat ) {
-        fold_and_print( w_stats, point( x[i], y[i] ), w[i], c_light_gray,
-                        _( "Water Safe/Top Speed: <color_light_green>%3d</color>/<color_light_red>%3d</color> %s" ),
-                        vel_to_int( veh->safe_water_velocity( false ) ),
-                        vel_to_int( veh->max_water_velocity( false ) ),
-                        velocity_units( VU_VEHICLE ) );
-        i += 1;
-        // TODO: extract accelerations units to its own function
-        fold_and_print( w_stats, point( x[i], y[i] ), w[i], c_light_gray,
-                        //~ /t means per turn
-                        _( "Water Acceleration: <color_light_blue>%3d</color> %s/t" ),
-                        vel_to_int( veh->water_acceleration( false ) ),
-                        velocity_units( VU_VEHICLE ) );
-        i += 1;
-    } else {
-        i += 2;
+        if( is_ground ) {
+            fold_and_print( w_stats, point( x[i], y[i] ), w[i], c_light_gray,
+                            _( "Safe/Top Speed: <color_light_green>%3d</color>/<color_light_red>%3d</color> %s" ),
+                            vel_to_int( veh->safe_ground_velocity( false ) ),
+                            vel_to_int( veh->max_ground_velocity( false ) ),
+                            velocity_units( VU_VEHICLE ) );
+            i += 1;
+            // TODO: extract accelerations units to its own function
+            fold_and_print( w_stats, point( x[i], y[i] ), w[i], c_light_gray,
+                            //~ /t means per turn
+                            _( "Acceleration: <color_light_blue>%3d</color> %s/t" ),
+                            vel_to_int( veh->ground_acceleration( false ) ),
+                            velocity_units( VU_VEHICLE ) );
+            i += 1;
+        } else {
+            i += 2;
+        }
+        if( is_boat ) {
+            fold_and_print( w_stats, point( x[i], y[i] ), w[i], c_light_gray,
+                            _( "Water Safe/Top Speed: <color_light_green>%3d</color>/<color_light_red>%3d</color> %s" ),
+                            vel_to_int( veh->safe_water_velocity( false ) ),
+                            vel_to_int( veh->max_water_velocity( false ) ),
+                            velocity_units( VU_VEHICLE ) );
+            i += 1;
+            // TODO: extract accelerations units to its own function
+            fold_and_print( w_stats, point( x[i], y[i] ), w[i], c_light_gray,
+                            //~ /t means per turn
+                            _( "Water Acceleration: <color_light_blue>%3d</color> %s/t" ),
+                            vel_to_int( veh->water_acceleration( false ) ),
+                            velocity_units( VU_VEHICLE ) );
+            i += 1;
+        } else {
+            i += 2;
+        }
     }
     fold_and_print( w_stats, point( x[i], y[i] ), w[i], c_light_gray,
                     _( "Mass: <color_light_blue>%5.0f</color> %s" ),
@@ -3056,7 +3090,17 @@ void veh_interact::complete_vehicle( player &p )
             if( veh->part_flag( vehicle_part, "POWER_TRANSFER" ) ) {
                 veh->remove_remote_part( vehicle_part );
             }
-
+            if( veh->is_towing() || veh->is_towed() ) {
+                std::cout << "vehicle is towing/towed" << std::endl;
+                vehicle *other_veh = veh->is_towing() ? veh->tow_data.get_towed() : veh->tow_data.get_towed_by();
+                if( other_veh ) {
+                    std::cout << "other veh exists" << std::endl;
+                    other_veh->remove_part( other_veh->part_with_feature( other_veh->get_tow_part(), "TOW_CABLE",
+                                            true ) );
+                    other_veh->tow_data.clear_towing();
+                }
+                veh->tow_data.clear_towing();
+            }
             bool broken = veh->parts[ vehicle_part ].is_broken();
 
             if( broken ) {

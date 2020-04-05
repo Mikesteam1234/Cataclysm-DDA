@@ -1577,7 +1577,7 @@
     "fuel_type": "wind",
     "noise_factor": 1,
     "m2c": 90,
-    "exclusions": [ "manual" ],
+    "exclusions": [ "wind" ],
     "item": "sail",
     "location": "engine_block",
     "folded_volume": 2,
@@ -1891,7 +1891,7 @@
       "removal": { "skills": [ [ "mechanics", 1 ] ], "time": "5 m", "using": [ [ "vehicle_screw", 1 ] ] },
       "repair": { "skills": [ [ "mechanics", 1 ] ], "time": "20 s", "using": [ [ "adhesive", 1 ] ] }
     },
-    "flags": [ "OPENABLE", "OPENCLOSE_INSIDE", "OPAQUE", "CURTAIN", "WINDOW_CURTAIN", "MULTISQUARE" ],
+    "flags": [ "OPENABLE", "OPENCLOSE_INSIDE", "OPAQUE", "CURTAIN", "MULTISQUARE", "NEEDS_WINDOW" ],
     "breaks_into": [  ]
   },
   {
@@ -2948,6 +2948,22 @@
     "requirements": { "removal": { "time": "5 s" } },
     "flags": [ "NOINSTALL", "UNMOUNT_ON_DAMAGE", "UNMOUNT_ON_MOVE", "POWER_TRANSFER" ],
     "breaks_into": [ { "item": "wire", "count": [ 4, 8 ] }, { "item": "plastic_chunk", "count": [ 4, 8 ] } ]
+  },
+  {
+    "type": "vehicle_part",
+    "id": "hd_tow_cable",
+    "name": "heavy duty tow cable",
+    "symbol": "{",
+    "color": "light_blue",
+    "broken_symbol": "*",
+    "broken_color": "dark_gray",
+    "damage_modifier": 10,
+    "durability": 120,
+    "description": "A heavy duty tow cable, if the other end was attached to another vehicle, it could pull it.",
+    "item": "hd_tow_cable",
+    "requirements": { "removal": { "time": 500 } },
+    "flags": [ "NOINSTALL", "UNMOUNT_ON_DAMAGE", "TOW_CABLE" ],
+    "breaks_into": [ { "item": "scrap", "count": [ 4, 8 ] }, { "item": "grip_hook", "count": 1 }, { "item": "cable", "count": [ 1, 4 ] } ]
   },
   {
     "type": "vehicle_part",

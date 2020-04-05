@@ -600,7 +600,8 @@ void overmapbuffer::remove_vehicle( const vehicle *veh )
 
 void overmapbuffer::add_vehicle( vehicle *veh )
 {
-    const point omt = ms_to_omt_copy( g->m.getabs( veh->global_pos3().xy() ) );
+    const point abs_pos = g->m.getabs( veh->global_pos3().xy() );
+    const point omt = ms_to_omt_copy( abs_pos );
     const overmap_with_local_coords om_loc = get_om_global( omt );
     int id = om_loc.om->vehicles.size() + 1;
     // this *should* be unique but just in case
@@ -709,7 +710,6 @@ std::vector<tripoint> overmapbuffer::get_npc_path( const tripoint &src, const tr
     const auto get_ter_at = [&]( const point & p ) {
         return ter( base + p );
     };
-
     const auto estimate = [&]( const pf::node & cur, const pf::node * ) {
         int res = 0;
         const oter_id oter = get_ter_at( cur.pos );
@@ -727,9 +727,17 @@ std::vector<tripoint> overmapbuffer::get_npc_path( const tripoint &src, const tr
                                   is_ot_match( "bridge", oter, ot_match_type::type ) ) ) {
             return pf::rejected;
         }
-        if( is_ot_match( "empty_rock", oter, ot_match_type::type ) ||
-            is_ot_match( "open_air", oter, ot_match_type::type ) ) {
+        if( ptype.only_air && ( !is_ot_match( "open_air", oter, ot_match_type::type ) ) ) {
             return pf::rejected;
+        }
+        if( is_ot_match( "empty_rock", oter, ot_match_type::type ) ) {
+            return pf::rejected;
+        } else if( is_ot_match( "open_air", oter, ot_match_type::type ) ) {
+            if( ptype.only_air ) {
+                travel_cost += 1;
+            } else {
+                return pf::rejected;
+            }
         } else if( is_ot_match( "forest", oter, ot_match_type::type ) ) {
             travel_cost = 10;
         } else if( is_ot_match( "forest_water", oter, ot_match_type::type ) ) {
@@ -1034,8 +1042,14 @@ shared_ptr_fast<npc> overmapbuffer::find_npc( character_id id )
 cata::optional<basecamp *> overmapbuffer::find_camp( const point &p )
 {
     for( auto &it : overmaps ) {
-        if( cata::optional<basecamp *> camp = it.second->find_camp( p ) ) {
-            return camp;
+        const int x = p.x;
+        const int y = p.y;
+        for( int x2 = x - 3; x2 < x + 3; x2++ ) {
+            for( int y2 = y - 3; y2 < y + 3; y2++ ) {
+                if( cata::optional<basecamp *> camp = it.second->find_camp( point( x2, y2 ) ) ) {
+                    return camp;
+                }
+            }
         }
     }
     return cata::nullopt;
